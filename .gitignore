@@ -1,0 +1,32 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Node / JS
+node_modules/
+dist/
+.eslintcache
+
+# Logs
+*.log
+backend.log
+flask.log
+uvicorn.log
+backend_err.log
+backend_start.log
+frontend_start.log
+uvicorn_err.log
+
+# OS
+.DS_Store
+Thumbs.db
