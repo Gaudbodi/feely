@@ -3,6 +3,7 @@ from flask_cors import CORS
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
+import uuid
 from datetime import datetime, timedelta
 import bcrypt
 from jose import JWTError, jwt
