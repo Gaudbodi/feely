@@ -4,6 +4,7 @@ let isLoginMode = true;
 let healthChart = null;
 let currentFilter = 'all'; // 'all', 'systolic', 'diastolic'
 let allReadings = [];
+let viewingOwner = null; // null if own dashboard, or email of the person who shared with you
 
 // DOM Elements
 const authView = document.getElementById('auth-view');
@@ -14,6 +15,16 @@ const authTitle = document.getElementById('auth-title');
 const authSubmit = document.getElementById('auth-submit');
 const logoutBtn = document.getElementById('logout-btn');
 const readingForm = document.getElementById('reading-form');
+
+// Sharing Elements
+const inviteModal = document.getElementById('invite-modal');
+const btnOpenInvite = document.getElementById('btn-open-invite');
+const btnCloseModal = document.getElementById('btn-close-modal');
+const btnCreateInvite = document.getElementById('btn-create-invite');
+const inviteResult = document.getElementById('invite-result');
+const inviteTokenDisplay = document.getElementById('invite-token-display');
+const sharedWithMeList = document.getElementById('shared-with-me-list');
+const accessLogsList = document.getElementById('access-logs-list');
 
 // Initialize
 function init() {
@@ -31,7 +42,8 @@ function showAuth() {
     authView.querySelector('.card').classList.add('animate-in');
 }
 
-function showDashboard() {
+function showDashboard(ownerEmail = null) {
+    viewingOwner = ownerEmail;
     authView.classList.add('hidden');
     dashboardView.classList.remove('hidden');
     
@@ -40,17 +52,146 @@ function showDashboard() {
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     document.getElementById('reading-date').value = now.toISOString().slice(0, 16);
 
-    // Staggered animation refresh
+    // Refresh animations
     document.querySelectorAll('#dashboard-view .animate-in').forEach(el => {
         el.style.animation = 'none';
-        el.offsetHeight; // trigger reflow
+        el.offsetHeight; 
         el.style.animation = null;
     });
 
     const userEmail = localStorage.getItem('userEmail') || 'User';
-    document.getElementById('user-greeting').innerText = `Hello, ${userEmail.split('@')[0]}`;
+    const headerTitle = viewingOwner ? `Viewing: ${viewingOwner.split('@')[0]}` : `Hello, ${userEmail.split('@')[0]}`;
+    document.getElementById('user-greeting').innerText = headerTitle;
+
     loadReadings();
+    if (!viewingOwner) {
+        loadSharingData();
+    }
 }
+
+// Sharing UI Handlers
+btnOpenInvite.addEventListener('click', () => {
+    inviteModal.classList.remove('hidden');
+    inviteResult.classList.add('hidden');
+});
+
+btnCloseModal.addEventListener('click', () => {
+    inviteModal.classList.add('hidden');
+});
+
+btnCreateInvite.addEventListener('click', async () => {
+    const perms = document.getElementById('invite-perms').value;
+    const expiry = document.getElementById('invite-expiry').value;
+
+    try {
+        const response = await fetch(`${API_URL}/api/invites`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({ permissions: perms, expiry_hours: expiry })
+        });
+        const data = await response.json();
+        if (response.ok) {
+            inviteResult.classList.remove('hidden');
+            inviteTokenDisplay.innerText = data.token;
+        }
+    } catch (err) {
+        alert('Failed to generate invite');
+    }
+});
+
+async function loadSharingData() {
+    // Load Shared with me
+    try {
+        const sharedResponse = await fetch(`${API_URL}/api/shared-with-me`, {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        const sharedData = await sharedResponse.json();
+        
+        sharedWithMeList.innerHTML = '';
+        if (sharedData.shared && sharedData.shared.length > 0) {
+            sharedData.shared.forEach(acc => {
+                const item = document.createElement('div');
+                item.className = 'shared-account-item';
+                item.innerHTML = `
+                    <span>${acc.owner_email} (${acc.permissions})</span>
+                    <button class="btn-filter" style="background: var(--primary); color: white;" onclick="showDashboard('${acc.owner_email}')">View</button>
+                `;
+                sharedWithMeList.appendChild(item);
+            });
+            // Add "Back to Mine" button if viewing shared
+            if (viewingOwner) {
+                const mineBtn = document.createElement('button');
+                mineBtn.className = 'btn-primary';
+                mineBtn.style.marginTop = '1rem';
+                mineBtn.innerText = 'Back to My Account';
+                mineBtn.onclick = () => showDashboard(null);
+                sharedWithMeList.appendChild(mineBtn);
+            }
+        } else {
+            sharedWithMeList.innerHTML = '<p>No shared accounts.</p>';
+        }
+
+        // Add "Accept Invite" trigger
+        const acceptBtn = document.createElement('button');
+        acceptBtn.className = 'btn-link';
+        acceptBtn.style.marginTop = '0.5rem';
+        acceptBtn.innerText = 'Got a token? Click to accept access.';
+        acceptBtn.onclick = showAcceptView;
+        sharedWithMeList.appendChild(acceptBtn);
+
+        // Load Access Logs
+        const logsResponse = await fetch(`${API_URL}/api/access-logs`, {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        const logsData = await logsResponse.json();
+        access_logs_list.innerHTML = '';
+        if (logsData.logs && logsData.logs.length > 0) {
+            logsData.logs.forEach(log => {
+                const logEl = document.createElement('div');
+                logEl.className = 'log-entry';
+                const time = new Date(log.timestamp).toLocaleString();
+                logEl.innerHTML = `<strong>${log.user_email}</strong>: ${log.action} at ${time}`;
+                access_logs_list.appendChild(logEl);
+            });
+        } else {
+            access_logs_list.innerHTML = '<p>No logs yet.</p>';
+        }
+
+    } catch (err) {
+        console.error('Error loading sharing data', err);
+    }
+}
+
+function showAcceptView() {
+    dashboardView.classList.add('hidden');
+    document.getElementById('accept-view').classList.remove('hidden');
+}
+
+document.getElementById('btn-accept-invite').addEventListener('click', async () => {
+    const token = document.getElementById('accept-token-input').value;
+    try {
+        const response = await fetch(`${API_URL}/api/invites/accept`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({ token: token })
+        });
+        const data = await response.json();
+        if (response.ok) {
+            alert('Access accepted!');
+            location.reload();
+        } else {
+            alert(data.detail || 'Failed to accept invite');
+        }
+    } catch (err) {
+        alert('Connection error');
+    }
+});
 
 // Auth Actions
 authToggleBtn.addEventListener('click', () => {
@@ -129,7 +270,8 @@ readingForm.addEventListener('submit', async (e) => {
                 reading_type: 'Blood Pressure',
                 value: `${systolic}/${diastolic}`,
                 bpm: bpm,
-                timestamp: timestamp
+                timestamp: timestamp,
+                owner_email: viewingOwner // If writing to someone else's account
             })
         });
 
@@ -140,6 +282,9 @@ readingForm.addEventListener('submit', async (e) => {
             loadReadings();
         } else if (response.status === 401) {
             logoutBtn.click();
+        } else {
+            const data = await response.json();
+            alert(data.detail || 'Failed to save');
         }
     } catch (err) {
         alert('Failed to save reading');
@@ -148,9 +293,19 @@ readingForm.addEventListener('submit', async (e) => {
 
 async function loadReadings() {
     try {
-        const response = await fetch(`${API_URL}/api/readings`, {
+        const url = viewingOwner 
+            ? `${API_URL}/api/readings?owner_email=${viewingOwner}`
+            : `${API_URL}/api/readings`;
+            
+        const response = await fetch(url, {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
+        
+        if (response.status === 401) {
+            logoutBtn.click();
+            return;
+        }
+
         const data = await response.json();
         allReadings = data.readings || [];
         allReadings.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -163,6 +318,7 @@ async function loadReadings() {
 // Graph Filters
 document.querySelectorAll('.btn-filter').forEach(btn => {
     btn.addEventListener('click', () => {
+        if (btn.id === 'btn-open-invite') return;
         document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentFilter = btn.getAttribute('data-filter');

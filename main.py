@@ -24,6 +24,9 @@ client = MongoClient(MONGO_URI)
 db = client["feely_ai"]
 collection = db["feely"]
 users_collection = db["users"]
+invites_collection = db["invites"]
+shared_access_collection = db["shared_access"]
+access_logs_collection = db["access_logs"]
 
 # Security Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkeyshouldbechanginproduction")
@@ -31,6 +34,14 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # --- Auth Utilities ---
+def log_access(user_email, action, resource_owner, details=""):
+    access_logs_collection.insert_one({
+        "user_email": user_email,
+        "action": action,
+        "resource_owner": resource_owner,
+        "details": details,
+        "timestamp": datetime.utcnow()
+    })
 def verify_password(plain_password, hashed_password):
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
@@ -126,12 +137,27 @@ def signup():
 @token_required
 def add_reading(current_user):
     data = request.json
+    owner_email = data.get("owner_email")
+    
+    target_user = current_user["email"]
+    if owner_email and owner_email != current_user["email"]:
+        access = shared_access_collection.find_one({
+            "owner_email": owner_email,
+            "shared_with_email": current_user["email"],
+            "permissions": "write"
+        })
+        if not access:
+            return jsonify({"detail": "No write access to this account"}), 403
+        target_user = owner_email
+        log_access(current_user["email"], "write_reading", owner_email)
+
     new_reading = {
         "reading_type": data.get("reading_type"),
         "value": data.get("value"),
         "bpm": data.get("bpm"),
         "timestamp": data.get("timestamp"),
-        "user_id": current_user["email"]
+        "user_id": target_user,
+        "created_by": current_user["email"]
     }
     result = collection.insert_one(new_reading)
     return jsonify({"message": "Reading saved securely!", "id": str(result.inserted_id)})
@@ -139,7 +165,20 @@ def add_reading(current_user):
 @app.route('/api/readings', methods=['GET'])
 @token_required
 def get_readings(current_user):
-    readings = list(collection.find({"user_id": current_user["email"]}, {"_id": 0}))
+    owner_email = request.args.get("owner_email")
+    
+    target_user = current_user["email"]
+    if owner_email and owner_email != current_user["email"]:
+        access = shared_access_collection.find_one({
+            "owner_email": owner_email,
+            "shared_with_email": current_user["email"]
+        })
+        if not access:
+            return jsonify({"detail": "No access to this account"}), 403
+        target_user = owner_email
+        log_access(current_user["email"], "read_readings", owner_email)
+
+    readings = list(collection.find({"user_id": target_user}, {"_id": 0}))
     return jsonify({"readings": readings})
 
 @app.route('/api/auth/google', methods=['POST'])
@@ -166,6 +205,78 @@ def google_login():
         return jsonify({"access_token": access_token, "token_type": "bearer"})
     except Exception as e:
         return jsonify({"detail": str(e)}), 400
+
+# --- Sharing API ---
+
+@app.route('/api/invites', methods=['POST'])
+@token_required
+def create_invite(current_user):
+    data = request.json
+    permissions = data.get("permissions", "read") # "read" or "write"
+    expiry_hours = int(data.get("expiry_hours", 24))
+    
+    token = str(uuid.uuid4())
+    expiry = datetime.utcnow() + timedelta(hours=expiry_hours)
+    
+    invite = {
+        "token": token,
+        "inviter_email": current_user["email"],
+        "permissions": permissions,
+        "status": "pending",
+        "expiry": expiry,
+        "created_at": datetime.utcnow()
+    }
+    invites_collection.insert_one(invite)
+    
+    return jsonify({"invite_url": f"/invite/{token}", "token": token})
+
+@app.route('/api/invites', methods=['GET'])
+@token_required
+def list_invites(current_user):
+    invites = list(invites_collection.find({"inviter_email": current_user["email"]}, {"_id": 0}))
+    for inv in invites:
+        if inv["status"] == "pending" and inv["expiry"] < datetime.utcnow():
+            inv["status"] = "expired"
+    return jsonify({"invites": invites})
+
+@app.route('/api/invites/accept', methods=['POST'])
+@token_required
+def accept_invite(current_user):
+    token = request.json.get("token")
+    invite = invites_collection.find_one({"token": token})
+    
+    if not invite:
+        return jsonify({"detail": "Invite not found"}), 404
+    
+    if invite["status"] != "pending" or invite["expiry"] < datetime.utcnow():
+        return jsonify({"detail": "Invite is no longer valid"}), 400
+    
+    if invite["inviter_email"] == current_user["email"]:
+        return jsonify({"detail": "You cannot accept your own invite"}), 400
+
+    shared_access_collection.update_one(
+        {"owner_email": invite["inviter_email"], "shared_with_email": current_user["email"]},
+        {"$set": {"permissions": invite["permissions"], "accepted_at": datetime.utcnow()}},
+        upsert=True
+    )
+    
+    invites_collection.update_one({"token": token}, {"$set": {"status": "accepted", "accepted_by": current_user["email"]}})
+    
+    log_access(current_user["email"], "accept_invite", invite["inviter_email"])
+    
+    return jsonify({"message": "Access granted", "owner_email": invite["inviter_email"]})
+
+@app.route('/api/shared-with-me', methods=['GET'])
+@token_required
+def list_shared_with_me(current_user):
+    shared = list(shared_access_collection.find({"shared_with_email": current_user["email"]}, {"_id": 0}))
+    return jsonify({"shared": shared})
+
+@app.route('/api/access-logs', methods=['GET'])
+@token_required
+def get_access_logs(current_user):
+    logs = list(access_logs_collection.find({"resource_owner": current_user["email"]}, {"_id": 0}).sort("timestamp", -1).limit(50))
+    return jsonify({"logs": logs})
 
 if __name__ == '__main__':
     app.run()

@@ -104,6 +104,66 @@
                     <canvas id="healthChart" class="hidden"></canvas>
                 </div>
             </div>
+
+            <!-- Sharing Management -->
+            <div class="card animate-in" style="animation-delay: 0.3s;">
+                <h2 style="margin-bottom: 1.5rem; font-size: 1.2rem; display: flex; justify-content: space-between; align-items: center;">
+                    Sharing & Access
+                    <button class="btn-filter" id="btn-open-invite" style="background: var(--primary); color: white;">+ Invite</button>
+                </h2>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <div>
+                        <h3 style="font-size: 0.9rem; margin-bottom: 1rem; color: var(--text-muted);">Accounts Shared With Me</h3>
+                        <div id="shared-with-me-list" style="font-size: 0.9rem;">
+                            <p>No shared accounts yet.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 style="font-size: 0.9rem; margin-bottom: 1rem; color: var(--text-muted);">Recent Access Logs</h3>
+                        <div id="access-logs-list" style="font-size: 0.8rem; max-height: 150px; overflow-y: auto;">
+                            <p>No logs yet.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite Modal -->
+    <div id="invite-modal" class="modal-overlay hidden">
+        <div class="card" style="max-width: 400px; width: 90%;">
+            <h2 style="margin-bottom: 1.5rem;">Create Invite</h2>
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.9rem; margin-bottom: 0.5rem;">Permissions</label>
+                <select id="invite-perms" style="width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <option value="read">Read Only</option>
+                    <option value="write">Read & Write</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: block; font-size: 0.9rem; margin-bottom: 0.5rem;">Expires in (hours)</label>
+                <input type="number" id="invite-expiry" value="24" min="1" max="168">
+            </div>
+            <div id="invite-result" class="hidden" style="margin-bottom: 1.5rem; padding: 1rem; background: #f1f5f9; border-radius: 8px; font-size: 0.8rem; word-break: break-all;">
+                <p style="margin-bottom: 0.5rem; font-weight: 600;">Share this token:</p>
+                <code id="invite-token-display"></code>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button id="btn-create-invite" class="btn-primary">Generate Invite</button>
+                <button id="btn-close-modal" style="background: #f1f5f9; padding: 0 1rem; border-radius: 8px;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Accept Invite Overlay -->
+    <div id="accept-view" class="container flex-center hidden" style="min-height: 100vh;">
+        <div class="card" style="max-width: 400px; width: 100%; text-align: center;">
+            <h2>Accept Sharing Invite</h2>
+            <p style="color: var(--text-muted); margin-bottom: 2rem;">Enter the token you received to gain access.</p>
+            <input type="text" id="accept-token-input" placeholder="Paste token here" style="margin-bottom: 1.5rem;">
+            <button id="btn-accept-invite" class="btn-primary">Accept Access</button>
+            <button class="btn-link" onclick="location.reload()" style="margin-top: 1rem;">Cancel</button>
         </div>
     </div>
 
