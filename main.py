@@ -21,7 +21,7 @@ if not MONGO_URI:
     print("WARNING: MONGODB_URI not set.")
 
 client = MongoClient(MONGO_URI)
-db = client["new_numbering"]
+db = client["feely_ai"]
 collection = db["feely"]
 users_collection = db["users"]
 
