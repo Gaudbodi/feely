@@ -147,17 +147,17 @@ async function loadSharingData() {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
         const logsData = await logsResponse.json();
-        access_logs_list.innerHTML = '';
+        accessLogsList.innerHTML = '';
         if (logsData.logs && logsData.logs.length > 0) {
             logsData.logs.forEach(log => {
                 const logEl = document.createElement('div');
                 logEl.className = 'log-entry';
                 const time = new Date(log.timestamp).toLocaleString();
                 logEl.innerHTML = `<strong>${log.user_email}</strong>: ${log.action} at ${time}`;
-                access_logs_list.appendChild(logEl);
+                accessLogsList.appendChild(logEl);
             });
         } else {
-            access_logs_list.innerHTML = '<p>No logs yet.</p>';
+            accessLogsList.innerHTML = '<p>No logs yet.</p>';
         }
 
     } catch (err) {
