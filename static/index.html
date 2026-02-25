@@ -132,26 +132,58 @@
 
     <!-- Invite Modal -->
     <div id="invite-modal" class="modal-overlay hidden">
-        <div class="card" style="max-width: 400px; width: 90%;">
-            <h2 style="margin-bottom: 1.5rem;">Create Invite</h2>
-            <div style="margin-bottom: 1rem;">
-                <label style="display: block; font-size: 0.9rem; margin-bottom: 0.5rem;">Permissions</label>
-                <select id="invite-perms" style="width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid #e2e8f0;">
-                    <option value="read">Read Only</option>
-                    <option value="write">Read & Write</option>
-                </select>
+        <div class="card" style="max-width: 450px; width: 90%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="font-size: 1.2rem;">Share Access</h2>
+                <button id="btn-close-modal" style="background: none; font-size: 1.5rem; color: var(--text-muted);">&times;</button>
             </div>
-            <div style="margin-bottom: 1.5rem;">
-                <label style="display: block; font-size: 0.9rem; margin-bottom: 0.5rem;">Expires in (hours)</label>
-                <input type="number" id="invite-expiry" value="24" min="1" max="168">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted);">Permissions</label>
+                    <select id="invite-perms" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.9rem;">
+                        <option value="read">Read Only</option>
+                        <option value="write">Read & Write</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted);">Expires In</label>
+                    <select id="invite-expiry" style="width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.9rem;">
+                        <option value="24">24 Hours</option>
+                        <option value="168">7 Days</option>
+                        <option value="720">30 Days</option>
+                    </select>
+                </div>
             </div>
-            <div id="invite-result" class="hidden" style="margin-bottom: 1.5rem; padding: 1rem; background: #f1f5f9; border-radius: 8px; font-size: 0.8rem; word-break: break-all;">
-                <p style="margin-bottom: 0.5rem; font-weight: 600;">Share this token:</p>
-                <code id="invite-token-display"></code>
-            </div>
-            <div style="display: flex; gap: 1rem;">
-                <button id="btn-create-invite" class="btn-primary">Generate Invite</button>
-                <button id="btn-close-modal" style="background: #f1f5f9; padding: 0 1rem; border-radius: 8px;">Close</button>
+
+            <button id="btn-create-invite" class="btn-primary" style="margin-bottom: 1.5rem;">Generate Secure Link</button>
+
+            <div id="invite-result" class="hidden">
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted);">Shareable Link</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="invite-link-input" readonly style="background: #f8fafc; font-size: 0.8rem;">
+                        <button id="btn-copy-link" style="padding: 0 1rem; background: var(--primary); color: white; border-radius: 8px; font-size: 0.8rem;">Copy</button>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.8rem; color: var(--text-muted); text-align: center;">Quick Share</label>
+                    <div style="display: flex; justify-content: center; gap: 1.5rem;">
+                        <!-- WhatsApp -->
+                        <a id="share-whatsapp" target="_blank" style="text-decoration: none;">
+                            <div class="flex-center" style="width: 40px; height: 40px; background: #25D366; border-radius: 50%; color: white;">
+                                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.353-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.87 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.883 1.027 4.009 1.57 6.173 1.57h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                            </div>
+                        </a>
+                        <!-- Email -->
+                        <a id="share-email" target="_blank" style="text-decoration: none;">
+                            <div class="flex-center" style="width: 40px; height: 40px; background: var(--text-muted); border-radius: 50%; color: white;">
+                                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                            </div>
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

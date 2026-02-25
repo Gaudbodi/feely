@@ -22,16 +22,53 @@ const btnOpenInvite = document.getElementById('btn-open-invite');
 const btnCloseModal = document.getElementById('btn-close-modal');
 const btnCreateInvite = document.getElementById('btn-create-invite');
 const inviteResult = document.getElementById('invite-result');
-const inviteTokenDisplay = document.getElementById('invite-token-display');
+const inviteLinkInput = document.getElementById('invite-link-input');
+const btnCopyLink = document.getElementById('btn-copy-link');
+const shareWhatsapp = document.getElementById('share-whatsapp');
+const shareEmail = document.getElementById('share-email');
 const sharedWithMeList = document.getElementById('shared-with-me-list');
 const accessLogsList = document.getElementById('access-logs-list');
 
 // Initialize
-function init() {
+async function init() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteToken = urlParams.get('invite');
+    
+    if (inviteToken) {
+        sessionStorage.setItem('pending_invite', inviteToken);
+        // Clean URL
+        window.history.replaceState({}, document.title, "/");
+    }
+
     if (currentToken) {
+        // If logged in and has pending invite, accept it
+        const pending = sessionStorage.getItem('pending_invite');
+        if (pending) {
+            await handleAutoAccept(pending);
+        }
         showDashboard();
     } else {
         showAuth();
+    }
+}
+
+async function handleAutoAccept(token) {
+    try {
+        const response = await fetch(`${API_URL}/api/invites/accept`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({ token: token })
+        });
+        sessionStorage.removeItem('pending_invite');
+        if (response.ok) {
+            const data = await response.json();
+            alert(`Access to ${data.owner_email}'s health data has been granted!`);
+        }
+    } catch (err) {
+        console.error("Auto-accept failed", err);
     }
 }
 
@@ -50,7 +87,10 @@ function showDashboard(ownerEmail = null) {
     // Set default date to now
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    document.getElementById('reading-date').value = now.toISOString().slice(0, 16);
+    const dateInput = document.getElementById('reading-date');
+    if (dateInput) {
+        dateInput.value = now.toISOString().slice(0, 16);
+    }
 
     // Refresh animations
     document.querySelectorAll('#dashboard-view .animate-in').forEach(el => {
@@ -95,12 +135,27 @@ btnCreateInvite.addEventListener('click', async () => {
         const data = await response.json();
         if (response.ok) {
             inviteResult.classList.remove('hidden');
-            inviteTokenDisplay.innerText = data.token;
+            const fullUrl = `${window.location.origin}/?invite=${data.token}`;
+            inviteLinkInput.value = fullUrl;
+            
+            // Social Links
+            const text = encodeURIComponent(`I've invited you to view/record my health readings on Feely.ai. Use this secure link: ${fullUrl}`);
+            shareWhatsapp.href = `https://wa.me/?text=${text}`;
+            shareEmail.href = `mailto:?subject=Health%20Data%20Sharing%20Invite&body=${text}`;
         }
     } catch (err) {
         alert('Failed to generate invite');
     }
 });
+
+if (btnCopyLink) {
+    btnCopyLink.addEventListener('click', () => {
+        inviteLinkInput.select();
+        document.execCommand('copy');
+        btnCopyLink.innerText = 'Copied!';
+        setTimeout(() => btnCopyLink.innerText = 'Copy', 2000);
+    });
+}
 
 async function loadSharingData() {
     // Load Shared with me
@@ -231,6 +286,13 @@ authForm.addEventListener('submit', async (e) => {
             localStorage.setItem('token', data.access_token);
             localStorage.setItem('userEmail', email);
             currentToken = data.access_token;
+            
+            // Check if there was a pending invite waiting for login
+            const pending = sessionStorage.getItem('pending_invite');
+            if (pending) {
+                await handleAutoAccept(pending);
+            }
+            
             showDashboard();
         } else {
             alert(data.detail || 'Auth failed');
